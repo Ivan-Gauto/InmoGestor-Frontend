@@ -3,9 +3,9 @@ import {
   Box, Typography, Container, Card, CardContent, TextField, 
   Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
-  Select, MenuItem
+  Select, MenuItem, IconButton, Tooltip
 } from '@mui/material';
-import { Add as AddIcon, DescriptionOutlined as ContractIcon } from '@mui/icons-material';
+import { Add as AddIcon, DescriptionOutlined as ContractIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { contratosApi } from '../api/contratos';
 import { inquilinosApi } from '../api/inquilinos';
 import { inmueblesApi } from '../api/inmuebles';
@@ -537,10 +537,21 @@ export default function ContratosPage() {
                     {formData.fechaFin ? formatDate(formData.fechaFin) : '---'}
                   </Typography>
                 </Box>
-                <Box sx={{ flex: 1, p: 2, border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #4361ee', borderRadius: '4px 8px 8px 4px', bgcolor: 'rgba(255,255,255,0.02)' }}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    Valor del Índice Actual
-                  </Typography>
+                <Box sx={{ flex: 1, p: 2, border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #4361ee', borderRadius: '4px 8px 8px 4px', bgcolor: 'rgba(255,255,255,0.02)', position: 'relative' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      Valor del Índice Actual
+                    </Typography>
+                    <Tooltip title="Actualizar valor">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => formData.idTipoIndice && handleIndexChange(formData.idTipoIndice)}
+                        sx={{ mt: -0.5, mr: -0.5, color: '#4361ee', '&:hover': { bgcolor: 'rgba(67, 97, 238, 0.1)', transform: 'rotate(180deg)' }, transition: 'all 0.3s' }}
+                      >
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#4361ee', mt: 0.5 }}>
                     {formData.valorIndiceInicio === null ? 'Pendiente' : formData.valorIndiceInicio.toLocaleString('es-AR')}
                   </Typography>
