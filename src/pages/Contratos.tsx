@@ -3,9 +3,14 @@ import {
   Box, Typography, Container, Card, CardContent, TextField, 
   Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
-  Select, MenuItem, IconButton, Tooltip
+  Select, MenuItem, IconButton, Tooltip, Divider
 } from '@mui/material';
-import { Add as AddIcon, DescriptionOutlined as ContractIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  DescriptionOutlined as ContractIcon, 
+  Refresh as RefreshIcon,
+  HighlightOff as HighlightOffIcon 
+} from '@mui/icons-material';
 import { contratosApi } from '../api/contratos';
 import { inquilinosApi } from '../api/inquilinos';
 import { inmueblesApi } from '../api/inmuebles';
@@ -243,114 +248,140 @@ export default function ContratosPage() {
   }, [contratos, tabValue, searchTerm]);
 
   return (
-    <Container maxWidth="xl">
-      <PageHeader 
-        title="Gestión de Contratos"
-        subtitle="Administra los contratos de alquiler vigentes, por vencer y rescindidos."
-        action={{
-          label: "Nuevo Contrato",
-          icon: <AddIcon />,
-          onClick: openCrearDialog
-        }}
-      />
+    <Container maxWidth="xl" sx={{ py: 6 }}>
+      {/* Header Minimalista */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
+        <Box>
+          <Typography variant="h3" sx={{ fontWeight: 800, color: '#fff', letterSpacing: '-1.5px' }}>
+            Contratos
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>
+            Listado maestro de operaciones vigentes e históricas.
+          </Typography>
+        </Box>
+        
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />}
+          onClick={openCrearDialog}
+          sx={{ 
+            bgcolor: '#fff', 
+            color: '#000', 
+            px: 4, 
+            py: 1.5, 
+            borderRadius: '12px',
+            fontWeight: 700,
+            textTransform: 'none',
+            fontSize: '0.95rem',
+            '&:hover': { bgcolor: '#f0f0f0', boxShadow: '0 4px 12px rgba(255,255,255,0.1)' },
+            boxShadow: 'none'
+          }}
+        >
+          Nuevo Contrato
+        </Button>
+      </Box>
 
-      <Card sx={{ mb: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', bgcolor: '#0A0A0A', boxShadow: 'none', borderRadius: 2 }}>
-        <CardContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+      {/* Barra de Métricas Sobria */}
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 6, 
+        mb: 6, 
+        pb: 4, 
+        borderBottom: '1px solid rgba(255,255,255,0.05)' 
+      }}>
+        <Box>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: 1 }}>ACTIVOS</Typography>
+          <Typography variant="h4" sx={{ color: '#fff', fontWeight: 300 }}>{contratos.filter(c => c.estado === 1).length}</Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: 1 }}>POR VENCER</Typography>
+          <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 300 }}>{contratos.filter(c => c.estado === 1 && isPorVencer(c.fechaFin)).length}</Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: 1 }}>RESCINDIDOS</Typography>
+          <Typography variant="h4" sx={{ color: 'rgba(255,255,255,0.15)', fontWeight: 300 }}>{contratos.filter(c => c.estado !== 1).length}</Typography>
+        </Box>
+      </Box>
+
+      {/* Controles y Tabla */}
+      <Box sx={{ width: '100%' }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+          <Box sx={{ flex: 1 }}>
             <SearchInput 
-              placeholder="Buscar por inquilino, inmueble..."
+              placeholder="Filtrar contratos..."
               value={searchTerm}
               onChange={setSearchTerm}
             />
-            
-            <Select
-              size="small"
-              value={tabValue}
-              onChange={(e) => setTabValue(e.target.value as number)}
-              sx={{ minWidth: 150, borderRadius: 2, bgcolor: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)', '& fieldset': { border: 'none' } }}
-            >
-              <MenuItem value={0}>Todos</MenuItem>
-              <MenuItem value={1}>Activos</MenuItem>
-              <MenuItem value={2}>Por Vencer</MenuItem>
-              <MenuItem value={3}>Rescindidos</MenuItem>
-            </Select>
           </Box>
+          <Select
+            size="small"
+            value={tabValue}
+            onChange={(e) => setTabValue(e.target.value as number)}
+            sx={{ 
+              minWidth: 180, 
+              borderRadius: '12px', 
+              color: '#fff',
+              bgcolor: 'rgba(255,255,255,0.03)',
+              '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <MenuItem value={0}>Todos</MenuItem>
+            <MenuItem value={1}>Activos</MenuItem>
+            <MenuItem value={2}>Por Vencer</MenuItem>
+            <MenuItem value={3}>Rescindidos</MenuItem>
+          </Select>
+        </Box>
 
-
+        <Box sx={{ bgcolor: 'rgba(255,255,255,0.01)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}>
-              <CircularProgress />
-            </Box>
-          ) : error ? (
-            <Box sx={{ p: 3 }}>
-              <Alert severity="error">{error}</Alert>
-            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}><CircularProgress /></Box>
           ) : (
             <TableContainer>
-              <Table stickyHeader>
-                <TableHead>
+              <Table>
+                <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                   <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Inmueble</TableCell>
-                    <TableCell>Inquilino</TableCell>
-                    <TableCell>Inicio</TableCell>
-                    <TableCell>Fin</TableCell>
-                    <TableCell>Precio Base</TableCell>
-                    <TableCell>Estado</TableCell>
-                    {isAdmin && <TableCell align="center">Acciones</TableCell>}
+                    <TableCell sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600, py: 2.5, pl: 4 }}>INMUEBLE / DIRECCIÓN</TableCell>
+                    <TableCell sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>INQUILINO</TableCell>
+                    <TableCell sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>VIGENCIA</TableCell>
+                    <TableCell sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>MONTO</TableCell>
+                    <TableCell sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>ESTADO</TableCell>
+                    {isAdmin && <TableCell align="center" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>ACCIÓN</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredContratos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 7 : 6} sx={{ textAlign: 'center', py: 10 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
-                          <ContractIcon sx={{ fontSize: 48, mb: 1.5 }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>No hay contratos</Typography>
-                            <Typography variant="body2" sx={{ mt: 0.5 }}>No se encontraron registros con estos filtros.</Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
+                      <TableCell colSpan={isAdmin ? 6 : 5} sx={{ textAlign: 'center', py: 10 }}>
+                        <Typography sx={{ color: 'rgba(255,255,255,0.2)' }}>No hay contratos registrados</Typography>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredContratos.map((contrato) => (
-                      <TableRow key={contrato.id} hover>
-                        <TableCell sx={{ pl: 4 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{contrato.direccion || contrato.inmueble || 'N/A'}</Typography>
+                      <TableRow key={contrato.id} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                        <TableCell sx={{ color: '#fff', fontWeight: 500, py: 3, pl: 4 }}>{contrato.direccion || contrato.inmueble}</TableCell>
+                        <TableCell sx={{ color: 'rgba(255,255,255,0.8)' }}>{contrato.inquilino}</TableCell>
+                        <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
+                          {formatDate(contrato.fechaInicio)} — {formatDate(contrato.fechaFin)}
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{contrato.inquilino}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.primary">
-                            {formatDate(contrato.fechaInicio)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.primary">
-                            {formatDate(contrato.fechaFin)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            {formatCurrency(contrato.precioCuota)}
-                          </Typography>
-                        </TableCell>
+                        <TableCell sx={{ color: '#fff', fontWeight: 700 }}>{formatCurrency(contrato.precioCuota)}</TableCell>
                         <TableCell>
                           <StatusChip 
                             label={contrato.estado === 1 ? 'Activo' : 'Rescindido'} 
                             type={contrato.estado === 1 ? 'success' : 'error'} 
-                            variant={contrato.estado === 1 ? 'filled' : 'outlined'}
+                            variant="outlined"
                           />
                         </TableCell>
                         {isAdmin && (
                           <TableCell align="center">
                             {contrato.estado === 1 && (
-                              <Button 
-                                size="small" 
-                                color="error" 
-                                variant="outlined"
-                                onClick={() => setRescindirDialog({ open: true, id: contrato.id })}
-                                sx={{ fontWeight: 600, borderRadius: 1.5, py: 0.2 }}
-                              >
-                                Rescindir
-                              </Button>
+                              <Tooltip title="Rescindir Contrato">
+                                <IconButton 
+                                  onClick={() => setRescindirDialog({ open: true, id: contrato.id })}
+                                  sx={{ color: 'rgba(244, 67, 54, 0.5)', '&:hover': { color: '#f44336', bgcolor: 'rgba(244, 67, 54, 0.1)' } }}
+                                >
+                                  <HighlightOffIcon />
+                                </IconButton>
+                              </Tooltip>
                             )}
                           </TableCell>
                         )}
@@ -361,8 +392,8 @@ export default function ContratosPage() {
               </Table>
             </TableContainer>
           )}
-        </CardContent>
-      </Card>
+        </Box>
+      </Box>
 
       {/* Confirmation Dialog for Rescindir */}
       <Dialog 
