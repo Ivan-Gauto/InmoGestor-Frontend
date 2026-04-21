@@ -1,11 +1,5 @@
+import api, { type ApiResponse } from './index';
 import type { Pago, CuotaParaPago, RegistrarPagoRequest } from '../types/pago';
-import api from './contratos';
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  mensaje?: string;
-}
 
 export const pagosApi = {
   listar: async (estado?: number): Promise<Pago[]> => {
@@ -25,7 +19,7 @@ export const pagosApi = {
     throw new Error(response.data.mensaje || 'Error al obtener la cuota');
   },
 
-  obtenerCuotasPorContrato: async (contratoId: number): Promise<CuotaParaPago[]> => {
+  obtenerCuotasPorContrato: async (contratoId: string): Promise<CuotaParaPago[]> => {
     const response = await api.get<ApiResponse<CuotaParaPago[]>>(`/pagos/contrato/${contratoId}`);
     if (response.data.success && response.data.data) {
       return response.data.data;

@@ -1,39 +1,21 @@
-import axios from 'axios';
+import api, { type ApiResponse } from './index';
 import type { Inmueble } from '../types/inmueble';
-
-const API_BASE_URL = 'http://localhost:5000/api';
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('inmogestor_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-api.interceptors.request.use((config) => {
-  const headers = getAuthHeader();
-  Object.assign(config.headers, headers);
-  return config;
-});
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  mensaje?: string;
-}
 
 export const inmueblesApi = {
   listar: async (): Promise<Inmueble[]> => {
-    const response = await api.get<ApiResponse<Inmueble[]>>('/inmuebles');
+    const response = await api.get<ApiResponse<Inmueble[]>>('/inmueble');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
     throw new Error(response.data.mensaje || 'Error al obtener inmuebles');
+  },
+
+  listarDisponibles: async (): Promise<Inmueble[]> => {
+    const response = await api.get<ApiResponse<Inmueble[]>>('/inmueble?disponibles=true');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.mensaje || 'Error al obtener inmuebles disponibles');
   },
 };
 

@@ -17,7 +17,7 @@ export interface Pago {
 }
 
 export interface CuotaParaPago {
-  cuotaId: number;
+  cuotaId: string;
   nroCuota: number;
   periodo: string;
   fechaVencimiento: string;
@@ -31,12 +31,12 @@ export interface CuotaParaPago {
 }
 
 export interface RegistrarPagoRequest {
-  contratoId: number;
-  cuotaId: number;
+  contratoId: string;
+  cuotaId: string;
   nroCuota: number;
   montoTotal: number;
   fechaPago: string;
-  metodoPagoId: number;
+  metodoPagoId: string;
   moraCobrada: number;
   otrosAdicionales: number;
   descAdicionales: string;

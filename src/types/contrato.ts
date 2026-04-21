@@ -1,5 +1,5 @@
 export interface Contrato {
-  id: number;
+  id: string;
   inquilino: string;
   dniInquilino: string;
   direccion: string;
@@ -20,11 +20,13 @@ export interface CrearContratoRequest {
   cantidadCuotas: number;
   precioCuota: number;
   tasaMoraMensual: number;
-  condiciones: string;
-  inmuebleId: number;
+  condiciones?: string;
+  inmuebleId: string;
   dniInquilino: string;
-  rolInquilinoId: number;
-  usuarioCreador: number;
+  rolInquilinoId: string;
+  frecuenciaAjuste?: string;
+  idTipoIndice?: string;
+  valorIndiceInicio?: number | null;
 }
 
 export interface ApiResponse<T> {

@@ -8,7 +8,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (dni: string, password: string) => Promise<{ success: boolean; message: string }>;
+  login: (dni: string, password: string) => Promise<{ success: boolean; mensaje: string }>;
   logout: () => void;
   isAdmin: boolean;
   isGerente: boolean;
@@ -62,13 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(response.token);
         setUser(usuarioInfo);
         
-        return { success: true, message: 'Login exitoso' };
+        return { success: true, mensaje: 'Login exitoso' };
       }
       
-      return { success: false, message: response.mensaje || 'Error al iniciar sesión' };
+      return { success: false, mensaje: response.mensaje || 'Error al iniciar sesión' };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error de conexión';
-      return { success: false, message };
+      const mensaje = error instanceof Error ? error.message : 'Error de conexión';
+      return { success: false, mensaje };
     }
   }, []);
 

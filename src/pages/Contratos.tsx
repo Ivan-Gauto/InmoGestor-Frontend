@@ -1,42 +1,41 @@
 import { useEffect, useState, useMemo } from 'react';
 import { 
-  Box, Typography, Container, Card, CardContent, TextField, InputAdornment, 
+  Box, Typography, Container, Card, CardContent, TextField, 
   Table, TableBody, TableCell, TableContainer, TableHead, 
-  TableRow, Chip, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
+  TableRow, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
   Select, MenuItem
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  DescriptionOutlined as ContractIcon,
-} from '@mui/icons-material';
+import { Add as AddIcon, DescriptionOutlined as ContractIcon } from '@mui/icons-material';
 import { contratosApi } from '../api/contratos';
 import { inquilinosApi } from '../api/inquilinos';
 import { inmueblesApi } from '../api/inmuebles';
+import { indicesApi } from '../api/indices';
 import type { Contrato, CrearContratoRequest } from '../types/contrato';
 import type { Inquilino } from '../types/inquilino';
 import type { Inmueble } from '../types/inmueble';
+import { useAuth } from '../context/AuthContext';
+import { PageHeader } from '../components/common/PageHeader';
+import { SearchInput } from '../components/common/SearchInput';
+import { StatusChip } from '../components/common/StatusChip';
+import { formatCurrency, formatDate, toInputDate, isPorVencer } from '../utils/formatters';
 
-// Helper to check if a date is within the next 30 days
-const isPorVencer = (fechaFin: string) => {
-  const final = new Date(fechaFin);
-  const hoy = new Date();
-  const diffTime = final.getTime() - hoy.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= 30;
-};
+
+
+
 
 const initialFormData: CrearContratoRequest = {
-  fechaInicio: new Date().toISOString().split('T')[0],
-  fechaFin: '',
+  fechaInicio: toInputDate(),
+  fechaFin: toInputDate(new Date(new Date().setMonth(new Date().getMonth() + 12))),
   cantidadCuotas: 12,
   precioCuota: 0,
   tasaMoraMensual: 0,
   condiciones: '',
-  inmuebleId: 0,
+  inmuebleId: '',
   dniInquilino: '',
-  rolInquilinoId: 0,
-  usuarioCreador: 1
+  rolInquilinoId: '',
+  frecuenciaAjuste: '',
+  idTipoIndice: '',
+  valorIndiceInicio: null,
 };
 
 export default function ContratosPage() {
@@ -44,12 +43,14 @@ export default function ContratosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { isAdmin } = useAuth();
+  
   // Filtering state
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Dialog state for confirming termination
-  const [rescindirDialog, setRescindirDialog] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
+  const [rescindirDialog, setRescindirDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
   const [dialogLoading, setDialogLoading] = useState(false);
 
   // Dialog state for creating contract
@@ -89,7 +90,7 @@ export default function ContratosPage() {
 
   const fetchInmuebles = async () => {
     try {
-      const data = await inmueblesApi.listar();
+      const data = await inmueblesApi.listarDisponibles();
       setInmuebles(data);
     } catch (err) {
       console.error('Error al cargar inmuebles:', err);
@@ -141,7 +142,7 @@ export default function ContratosPage() {
       setFormError('El DNI del inquilino es obligatorio');
       return;
     }
-    if (formData.inmuebleId <= 0) {
+    if (!formData.inmuebleId) {
       setFormError('Debe seleccionar un inmueble');
       return;
     }
@@ -169,7 +170,7 @@ export default function ContratosPage() {
         const start = new Date(newData.fechaInicio);
         if (!isNaN(start.getTime())) {
           start.setMonth(start.getMonth() + Number(newData.cantidadCuotas));
-          newData.fechaFin = start.toISOString().split('T')[0];
+          newData.fechaFin = toInputDate(start);
         }
       }
       
@@ -177,17 +178,63 @@ export default function ContratosPage() {
     });
   };
 
+  const handleIndexChange = async (val: string) => {
+    handleFormChange('idTipoIndice', val);
+    
+    if (!val) {
+      setFormData(prev => ({ ...prev, valorIndiceInicio: null }));
+      return;
+    }
+    
+    // IDs reales desde InmoGestor DB
+    const isIPC = val === '9AEA4F7F-61B2-4605-9A8A-02E1D08BB64D';
+    const isICL = val === '92DF76E5-2671-4532-9EAD-D01CD049C6AF';
+    
+    if (isIPC || isICL) {
+      try {
+        // --- 1. Consultar a NUESTRO caché primero (rápido y gratis) ---
+        const cacheRes = await indicesApi.obtenerCacheActual(val);
+        if (cacheRes.success && cacheRes.data) {
+           setFormData(prev => ({ ...prev, valorIndiceInicio: cacheRes.data.valor }));
+           return;
+        }
+
+        // --- 2. Si no hay caché de hoy, le pedimos a argy API ---
+        const url = isIPC ? 'https://api.argly.com.ar/api/ipc' : 'https://api.argly.com.ar/api/icl';
+        const res = await fetch(url);
+        const json = await res.json();
+        let value = isIPC ? json.data.indice_ipc : json.data.valor;
+
+        if (typeof value === 'string') {
+          value = parseFloat(value.replace(',', '.'));
+        }
+        
+        setFormData(prev => ({ ...prev, valorIndiceInicio: value }));
+
+        // --- 3. Guardarlo en nuestro backend para futuras consultas de hoy ---
+        try {
+          await indicesApi.guardarCache(val, value);
+        } catch (saveErr) {
+          console.error("No se pudo cachear el indice", saveErr);
+        }
+
+      } catch (err) {
+        console.error("Error fetching index:", err);
+      }
+    }
+  };
+
   const filteredContratos = useMemo(() => {
     let result = contratos;
 
     // Filter by Tab
-    if (tabValue === 0) {
+    if (tabValue === 1) {
       // Activos
       result = result.filter(c => c.estado === 1);
-    } else if (tabValue === 1) {
+    } else if (tabValue === 2) {
       // Por Vencer
       result = result.filter(c => c.estado === 1 && isPorVencer(c.fechaFin));
-    } else if (tabValue === 2) {
+    } else if (tabValue === 3) {
       // Rescindidos
       result = result.filter(c => c.estado !== 1);
     }
@@ -208,46 +255,23 @@ export default function ContratosPage() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1 }}>
-            Gestión de Contratos
-          </Typography>
-          <Typography color="text.secondary">
-            Administra los contratos de alquiler vigentes, por vencer y rescindidos.
-          </Typography>
-        </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={openCrearDialog}
-          sx={{ borderRadius: '6px', px: 3, py: 1, bgcolor: '#fff', color: '#000', fontWeight: 600, boxShadow: 'none', '&:hover': { bgcolor: '#f0f0f0' } }}
-        >
-          Nuevo Contrato
-        </Button>
-      </Box>
+      <PageHeader 
+        title="Gestión de Contratos"
+        subtitle="Administra los contratos de alquiler vigentes, por vencer y rescindidos."
+        action={{
+          label: "Nuevo Contrato",
+          icon: <AddIcon />,
+          onClick: openCrearDialog
+        }}
+      />
 
       <Card sx={{ mb: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', bgcolor: '#0A0A0A', boxShadow: 'none', borderRadius: 2 }}>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ p: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-            <TextField
-              placeholder="Buscar contrato..."
-              variant="outlined"
-              size="small"
-              fullWidth
+            <SearchInput 
+              placeholder="Buscar por inquilino, inmueble..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: { borderRadius: 2, bgcolor: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }
-                }
-              }}
-              sx={{ maxWidth: 400, '& fieldset': { border: 'none' } }}
+              onChange={setSearchTerm}
             />
             
             <Select
@@ -259,7 +283,7 @@ export default function ContratosPage() {
               <MenuItem value={0}>Todos</MenuItem>
               <MenuItem value={1}>Activos</MenuItem>
               <MenuItem value={2}>Por Vencer</MenuItem>
-              <MenuItem value={3}>Finalizados</MenuItem>
+              <MenuItem value={3}>Rescindidos</MenuItem>
             </Select>
           </Box>
 
@@ -283,19 +307,20 @@ export default function ContratosPage() {
                     <TableCell>Fin</TableCell>
                     <TableCell>Precio Base</TableCell>
                     <TableCell>Estado</TableCell>
+                    {isAdmin && <TableCell align="center">Acciones</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredContratos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ textAlign: 'center', py: 10 }}>
+                      <TableCell colSpan={isAdmin ? 7 : 6} sx={{ textAlign: 'center', py: 10 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
                           <ContractIcon sx={{ fontSize: 48, mb: 1.5 }} />
-                          <Typography variant="h6" sx={{ fontWeight: 600 }}>No hay contratos</Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>No se encontraron registros con estos filtros.</Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>No hay contratos</Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>No se encontraron registros con estos filtros.</Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
                   ) : (
                     filteredContratos.map((contrato) => (
                       <TableRow key={contrato.id} hover>
@@ -305,30 +330,41 @@ export default function ContratosPage() {
                         <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{contrato.inquilino}</TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.primary">
-                            {contrato.fechaInicio.split('T')[0]}
+                            {formatDate(contrato.fechaInicio)}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.primary">
-                            {contrato.fechaFin.split('T')[0]}
+                            {formatDate(contrato.fechaFin)}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            ${contrato.precioCuota.toLocaleString('es-AR')}
+                            {formatCurrency(contrato.precioCuota)}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          {contrato.estado === 1 ? (
-                            isPorVencer(contrato.fechaFin) ? (
-                              <Chip label="Pendiente" size="small" variant="outlined" sx={{ fontWeight: 600, color: 'text.primary', borderColor: 'rgba(255,255,255,0.2)' }} />
-                            ) : (
-                              <Chip label="Vigente" size="small" sx={{ fontWeight: 600, bgcolor: '#fff', color: '#000' }} />
-                            )
-                          ) : (
-                            <Chip label="Finalizado" size="small" variant="outlined" sx={{ fontWeight: 600, color: 'text.primary', borderColor: 'rgba(255,255,255,0.2)' }} />
-                          )}
+                          <StatusChip 
+                            label={contrato.estado === 1 ? 'Activo' : 'Rescindido'} 
+                            type={contrato.estado === 1 ? 'success' : 'error'} 
+                            variant={contrato.estado === 1 ? 'filled' : 'outlined'}
+                          />
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell align="center">
+                            {contrato.estado === 1 && (
+                              <Button 
+                                size="small" 
+                                color="error" 
+                                variant="outlined"
+                                onClick={() => setRescindirDialog({ open: true, id: contrato.id })}
+                                sx={{ fontWeight: 600, borderRadius: 1.5, py: 0.2 }}
+                              >
+                                Rescindir
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
@@ -402,19 +438,7 @@ export default function ContratosPage() {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Box>
-              <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
-                <TextField
-                  label="Fecha Fin (Auto)"
-                  type="date"
-                  fullWidth
-                  value={formData.fechaFin}
-                  slotProps={{ 
-                    inputLabel: { shrink: true },
-                    input: { readOnly: true }
-                  }}
-                  disabled
-                />
-              </Box>
+
               <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
                 <TextField
                   label="Cantidad de Cuotas"
@@ -443,13 +467,12 @@ export default function ContratosPage() {
                 />
               </Box>
               <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
-                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>Inmueble</Typography>
-                <Select
+                <TextField
+                  select
+                  label="Inmueble"
                   fullWidth
-                  size="small"
                   value={formData.inmuebleId || ''}
-                  onChange={(e) => handleFormChange('inmuebleId', e.target.value as number)}
-                  displayEmpty
+                  onChange={(e) => handleFormChange('inmuebleId', e.target.value as string)}
                 >
                   <MenuItem value="" disabled>Seleccionar inmueble</MenuItem>
                   {inmuebles.map((inm) => (
@@ -457,16 +480,15 @@ export default function ContratosPage() {
                       {inm.direccion}
                     </MenuItem>
                   ))}
-                </Select>
+                </TextField>
               </Box>
               <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
-                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>Inquilino</Typography>
-                <Select
+                <TextField
+                  select
+                  label="Inquilino"
                   fullWidth
-                  size="small"
                   value={formData.dniInquilino || ''}
                   onChange={(e) => handleFormChange('dniInquilino', e.target.value as string)}
-                  displayEmpty
                 >
                   <MenuItem value="" disabled>Seleccionar inquilino</MenuItem>
                   {inquilinos.map((inq) => (
@@ -474,7 +496,55 @@ export default function ContratosPage() {
                       {inq.nombreCompleto}
                     </MenuItem>
                   ))}
-                </Select>
+                </TextField>
+              </Box>
+              <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
+                <TextField
+                  select
+                  label="Tipo de Índice de Ajuste"
+                  fullWidth
+                  value={formData.idTipoIndice || ''}
+                  onChange={(e) => handleIndexChange(e.target.value as string)}
+                >
+                  <MenuItem value="" disabled>Seleccionar índice</MenuItem>
+                  <MenuItem value="9AEA4F7F-61B2-4605-9A8A-02E1D08BB64D">IPC (Índice Precios Consumidor)</MenuItem>
+                  <MenuItem value="92DF76E5-2671-4532-9EAD-D01CD049C6AF">ICL (Índice Contratos Locación)</MenuItem>
+                </TextField>
+              </Box>
+
+               <Box sx={{ flex: '1 1 45%', minWidth: 200 }}>
+                <TextField
+                  select
+                  label="Frecuencia de Ajuste"
+                  fullWidth
+                  value={formData.frecuenciaAjuste || ''}
+                  onChange={(e) => handleFormChange('frecuenciaAjuste', e.target.value as string)}
+                >
+                  <MenuItem value="" disabled>Seleccionar frecuencia</MenuItem>
+                  <MenuItem value="Semestral">Semestral</MenuItem>
+                  <MenuItem value="Cuatrimestral">Cuatrimestral</MenuItem>
+                  <MenuItem value="Anual">Anual</MenuItem>
+                </TextField>
+              </Box>
+
+              {/* Fila de Datos Calculados */}
+              <Box sx={{ flex: '1 1 100%', display: 'flex', gap: 2, mt: 1, mb: 1 }}>
+                <Box sx={{ flex: 1, p: 2, border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #fff', borderRadius: '4px 8px 8px 4px', bgcolor: 'rgba(255,255,255,0.02)' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Fecha de Finalización
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff', mt: 0.5 }}>
+                    {formData.fechaFin ? formatDate(formData.fechaFin) : '---'}
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: 1, p: 2, border: '1px solid rgba(255,255,255,0.1)', borderLeft: '4px solid #4361ee', borderRadius: '4px 8px 8px 4px', bgcolor: 'rgba(255,255,255,0.02)' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Valor del Índice Actual
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#4361ee', mt: 0.5 }}>
+                    {formData.valorIndiceInicio === null ? 'Pendiente' : formData.valorIndiceInicio.toLocaleString('es-AR')}
+                  </Typography>
+                </Box>
               </Box>
               <Box sx={{ flex: '1 1 100%', minWidth: 200 }}>
                 <TextField

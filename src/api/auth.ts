@@ -1,6 +1,5 @@
+import api from './index';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5000/api';
 
 export interface LoginRequest {
   dni: string;
@@ -44,44 +43,16 @@ export interface RegisterResponse {
   mensaje: string;
 }
 
-const authApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-authApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem('inmogestor_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Interceptor global para redireccionar al login si el token expira o es inválido en /auth
-authApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('inmogestor_token');
-      localStorage.removeItem('inmogestor_user');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const authService = {
   login: async (dni: string, password: string): Promise<LoginResponse> => {
     try {
-      const response = await authApi.post<LoginResponse>('/auth/login', { Dni: dni, Password: password });
+      const response = await api.post<LoginResponse>('/auth/login', { Dni: dni, Password: password });
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response) {
         return {
           success: false,
-          mensaje: error.response.data?.mensaje || 'Credenciales inválidas'
+          mensaje: (error.response.data as any)?.mensaje || 'Credenciales inválidas'
         };
       }
       return {
@@ -93,13 +64,13 @@ export const authService = {
 
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
     try {
-      const response = await authApi.post<RegisterResponse>('/auth/register', data);
+      const response = await api.post<RegisterResponse>('/auth/register', data);
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response) {
         return {
           success: false,
-          mensaje: error.response.data?.mensaje || 'Error al registrar'
+          mensaje: (error.response.data as any)?.mensaje || 'Error al registrar'
         };
       }
       return {
@@ -110,12 +81,12 @@ export const authService = {
   },
 
   logout: async (): Promise<void> => {
-    await authApi.post('/auth/logout');
+    await api.post('/auth/logout');
   },
 
   getCurrentUser: async (): Promise<UsuarioInfo | null> => {
     try {
-      const response = await authApi.get<{ success: boolean; data?: UsuarioInfo }>('/auth/me');
+      const response = await api.get<{ success: boolean; data?: UsuarioInfo }>('/auth/me');
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
@@ -126,4 +97,4 @@ export const authService = {
   },
 };
 
-export default authApi;
+export default api;

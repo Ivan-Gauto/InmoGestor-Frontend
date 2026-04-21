@@ -1,12 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { 
-  Box, Typography, Container, Card, CardContent, TextField, InputAdornment, 
+  Box, Typography, Container, Card, CardContent, TextField, 
   Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, Chip, IconButton, Tooltip, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
   MenuItem, Select
 } from '@mui/material';
 import {
-  Search as SearchIcon,
   ReceiptOutlined as ReceiptIcon,
   CancelOutlined as CancelIcon,
   PaymentOutlined as PaymentIcon,
@@ -23,17 +22,21 @@ import { pagosApi } from '../api/pagos';
 import { contratosApi } from '../api/contratos';
 import { inquilinosApi } from '../api/inquilinos';
 import { useAuth } from '../context/AuthContext';
+import { PageHeader } from '../components/common/PageHeader';
+import { SearchInput } from '../components/common/SearchInput';
+import { StatusChip } from '../components/common/StatusChip';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import type { Pago, CuotaParaPago, RegistrarPagoRequest } from '../types/pago';
 import type { Contrato } from '../types/contrato';
 import type { Inquilino } from '../types/inquilino';
 
 const initialFormData: RegistrarPagoRequest = {
-  contratoId: 0,
-  cuotaId: 0,
+  contratoId: '',
+  cuotaId: '',
   nroCuota: 0,
   montoTotal: 0,
   fechaPago: new Date().toISOString().split('T')[0],
-  metodoPagoId: 1,
+  metodoPagoId: '',
   moraCobrada: 0,
   otrosAdicionales: 0,
   descAdicionales: ''
@@ -163,11 +166,11 @@ export default function PagosPage() {
   const handleRegistrarPago = async () => {
     setFormError(null);
     
-    if (formData.contratoId <= 0) {
+    if (!formData.contratoId) {
       setFormError('Debe seleccionar un contrato');
       return;
     }
-    if (formData.cuotaId <= 0) {
+    if (!formData.cuotaId) {
       setFormError('Debe seleccionar una cuota');
       return;
     }
@@ -251,46 +254,23 @@ export default function PagosPage() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1 }}>
-            Gestión de Pagos
-          </Typography>
-          <Typography color="text.secondary">
-            Administra cobros, emite recibos y controla vencimientos.
-          </Typography>
-        </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<PaymentIcon />}
-          onClick={openRegistrarDialog}
-          sx={{ borderRadius: '6px', px: 3, py: 1, bgcolor: '#fff', color: '#000', fontWeight: 600, boxShadow: 'none', '&:hover': { bgcolor: '#f0f0f0' } }}
-        >
-          Registrar Pago
-        </Button>
-      </Box>
+      <PageHeader 
+        title="Gestión de Pagos"
+        subtitle="Administra cobros, emite recibos y controla vencimientos."
+        action={{
+          label: "Registrar Pago",
+          icon: <PaymentIcon />,
+          onClick: openRegistrarDialog
+        }}
+      />
 
       <Card sx={{ mb: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', bgcolor: '#0A0A0A', boxShadow: 'none', borderRadius: 2 }}>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ p: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-            <TextField
-              placeholder="Buscar por inquilino, inmueble o ID de contrato..."
-              variant="outlined"
-              size="small"
-              fullWidth
+            <SearchInput 
+              placeholder="Buscar por inquilino, inmueble..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: { borderRadius: 2, bgcolor: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }
-                }
-              }}
-              sx={{ maxWidth: 400, '& fieldset': { border: 'none' } }}
+              onChange={setSearchTerm}
             />
             <Select
               size="small"
@@ -350,28 +330,28 @@ export default function PagosPage() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.primary">
-                            {pago.fechaVencimiento.split('T')[0]}
+                            {formatDate(pago.fechaVencimiento)}
                           </Typography>
                           {pago.fechaPago && (
                             <Typography variant="caption" color="text.secondary">
-                              Pago: {pago.fechaPago.split('T')[0]}
+                              Pago: {formatDate(pago.fechaPago)}
                             </Typography>
                           )}
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            ${pago.monto.toLocaleString('es-AR')}
+                            {formatCurrency(pago.monto)}
                           </Typography>
                           {pago.mora > 0 && (
                             <Typography variant="caption" color="error.main">
-                              + ${pago.mora.toLocaleString('es-AR')} mora
+                              + {formatCurrency(pago.mora)} mora
                             </Typography>
                           )}
                         </TableCell>
                         <TableCell>
-                          {pago.estado === 0 && <Chip label="Anulado" size="small" variant="outlined" sx={{ fontWeight: 600, color: '#ff4d4f', borderColor: 'rgba(255,77,79,0.5)' }} />}
-                          {pago.estado === 1 && <Chip label="Confirmado" size="small" sx={{ fontWeight: 600, bgcolor: '#10B981', color: '#fff' }} />}
-                          {pago.estado === 2 && <Chip label="Solicitud" size="small" sx={{ fontWeight: 600, bgcolor: '#FFA726', color: '#fff' }} />}
+                          {pago.estado === 0 && <StatusChip label="Anulado" type="error" variant="outlined" />}
+                          {pago.estado === 1 && <StatusChip label="Confirmado" type="success" />}
+                          {pago.estado === 2 && <StatusChip label="Solicitud" type="warning" />}
                         </TableCell>
                         <TableCell align="center" sx={{ pr: 4 }}>
                           {pago.estado === 1 && (
@@ -526,7 +506,7 @@ export default function PagosPage() {
                 onChange={(e) => {
                   const dni = e.target.value as string;
                   setSelectedInquilino(dni);
-                  setFormData((prev: RegistrarPagoRequest) => ({ ...prev, contratoId: 0 }));
+                  setFormData((prev: RegistrarPagoRequest) => ({ ...prev, contratoId: '' }));
                 }}
               >
                 {inquilinos.map(inq => (
@@ -544,12 +524,12 @@ export default function PagosPage() {
                 disabled={!selectedInquilino}
                 value={formData.contratoId || ''}
                 onChange={async (e) => {
-                  const cId = e.target.value as number;
+                  const cId = e.target.value as string;
                   
-                  if (cId <= 0) {
+                  if (!cId) {
                     setCuotasContrato([]);
                     setCuotaActiva(null);
-                    setFormData(prev => ({ ...prev, contratoId: 0, cuotaId: 0, nroCuota: 0 }));
+                    setFormData(prev => ({ ...prev, contratoId: '', cuotaId: '', nroCuota: 0 }));
                     return;
                   }
                   
@@ -557,7 +537,7 @@ export default function PagosPage() {
                     const cuotasData = await pagosApi.obtenerCuotasPorContrato(cId);
                     setCuotasContrato(cuotasData);
                     
-                    const cuotaPendiente = cuotasData.find(c => c.estado !== 2);
+                    const cuotaPendiente = cuotasData.find(c => c.estadoTexto !== 'Pagada');
                     if (cuotaPendiente) {
                       setCuotaActiva(cuotaPendiente);
                       setFormData(prev => ({ 
@@ -568,7 +548,7 @@ export default function PagosPage() {
                       }));
                     } else {
                       setCuotaActiva(null);
-                      setFormData(prev => ({ ...prev, contratoId: cId, cuotaId: 0, nroCuota: 0 }));
+                      setFormData(prev => ({ ...prev, contratoId: cId, cuotaId: '', nroCuota: 0 }));
                     }
                   } catch (err) {
                     console.error('Error al cargar cuotas:', err);

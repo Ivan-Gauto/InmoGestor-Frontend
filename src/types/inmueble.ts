@@ -1,5 +1,5 @@
 export interface Inmueble {
-  id: number;
+  id: string;
   direccion: string;
   descripcion: string;
   disponibilidad: number;

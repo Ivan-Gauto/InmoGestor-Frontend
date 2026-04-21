@@ -1,17 +1,17 @@
-import { Box, Typography, Container, Card, CardContent } from '@mui/material';
+import { Container, Card, CardContent, Typography } from '@mui/material';
+import { PageHeader } from '../components/common/PageHeader';
 
 export default function UsuariosPage() {
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1 }}>
-          Gestión de Usuarios
-        </Typography>
-        <Typography color="text.secondary">Control de acceso y cuentas de usuario internas.</Typography>
-      </Box>
-      <Card sx={{ p: 2 }}>
-        <CardContent>
-          <Typography>Implementación de la lista de usuarios en progreso...</Typography>
+      <PageHeader 
+        title="Gestión de Usuarios" 
+        subtitle="Control de acceso y cuentas de usuario internas." 
+      />
+      <Card sx={{ border: '1px solid rgba(255,255,255,0.1)', bgcolor: '#0A0A0A', borderRadius: 2 }}>
+        <CardContent sx={{ py: 10, textAlign: 'center', opacity: 0.5 }}>
+          <Typography variant="h6">Próximamente</Typography>
+          <Typography variant="body2">El módulo de gestión de permisos está en desarrollo.</Typography>
         </CardContent>
       </Card>
     </Container>

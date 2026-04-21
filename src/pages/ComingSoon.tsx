@@ -1,7 +1,5 @@
 import { Box, Typography, Button, Container } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import ConstructionIcon from '@mui/icons-material/Construction';
 
 export default function ComingSoon() {
   const navigate = useNavigate();

@@ -15,6 +15,17 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validaciones básicas
+    if (!dni.trim()) {
+      setError('El DNI es obligatorio');
+      return;
+    }
+    if (!password.trim()) {
+      setError('La contraseña es obligatoria');
+      return;
+    }
+
     setIsLoading(true);
 
     const result = await login(dni, password);
@@ -24,7 +35,7 @@ export default function LoginPage() {
     if (result.success) {
       navigate('/');
     } else {
-      setError(result.message);
+      setError(result.mensaje || 'Error al iniciar sesión');
     }
   };
 
