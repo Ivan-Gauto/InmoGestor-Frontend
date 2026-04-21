@@ -51,6 +51,27 @@ const authApi = axios.create({
   },
 });
 
+authApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('inmogestor_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Interceptor global para redireccionar al login si el token expira o es inválido en /auth
+authApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('inmogestor_token');
+      localStorage.removeItem('inmogestor_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authService = {
   login: async (dni: string, password: string): Promise<LoginResponse> => {
     try {
