@@ -6,18 +6,15 @@ export const indicesApi = {
     return response.data; // { success, data: [] }
   },
 
-  obtenerCacheActual: async (id: string) => {
+  /**
+   * Obtiene el valor vigente del índice.
+   * El backend resuelve el caché, llama a la API externa si es necesario,
+   * guarda en DB y retorna el valor. El front solo consume este endpoint.
+   */
+  obtenerValorActual: async (id: string) => {
     const response = await api.get(`/indice/${id}`);
     return response.data; // { success, data: { valor, ... } }
   },
-
-  guardarCache: async (idTipoIndice: string, valor: number) => {
-    const response = await api.post(`/indice`, {
-      idTipoIndice,
-      valor
-    });
-    return response.data;
-  }
 };
 
 export default api;

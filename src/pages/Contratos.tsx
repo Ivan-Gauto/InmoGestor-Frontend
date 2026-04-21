@@ -102,7 +102,6 @@ export default function ContratosPage() {
   const fetchTipoIndices = async () => {
     try {
       const response = await indicesApi.listarTipos();
-      // Solo mostramos IPC e ICL como pidió el usuario
       const filtered = (response.data || []).filter((idx: any) => 
         idx.nombre === 'IPC' || idx.nombre === 'ICL'
       );
@@ -196,52 +195,23 @@ export default function ContratosPage() {
 
   const handleIndexChange = async (val: string) => {
     handleFormChange('idTipoIndice', val);
-    
+
     if (!val) {
       setFormData(prev => ({ ...prev, valorIndiceInicio: null }));
       return;
     }
-    
-    // Identificar el índice por su nombre en la lista cargada
-    const indiceSeleccionado = tipoIndices.find(t => t.idTipoIndice === val);
-    if (!indiceSeleccionado) return;
 
-    const isIPC = indiceSeleccionado.nombre === 'IPC';
-    const isICL = indiceSeleccionado.nombre === 'ICL';
-    
-    if (isIPC || isICL) {
-      try {
-        // --- 1. Consultar a NUESTRO caché primero (rápido y gratis) ---
-        const cacheRes = await indicesApi.obtenerCacheActual(val);
-        if (cacheRes.success && cacheRes.data) {
-           setFormData(prev => ({ ...prev, valorIndiceInicio: cacheRes.data.valor }));
-           return;
-        }
-
-        // --- 2. Si no hay caché de hoy, le pedimos a argy API ---
-        const url = isIPC ? 'https://api.argly.com.ar/api/ipc' : 'https://api.argly.com.ar/api/icl';
-        const res = await fetch(url);
-        const json = await res.json();
-        let value = isIPC ? json.data.indice_ipc : json.data.valor;
-
-        if (typeof value === 'string') {
-          value = parseFloat(value.replace(',', '.'));
-        }
-        
-        setFormData(prev => ({ ...prev, valorIndiceInicio: value }));
-
-        // --- 3. Guardarlo en nuestro backend para futuras consultas de hoy ---
-        try {
-          await indicesApi.guardarCache(val, value);
-        } catch (saveErr) {
-          console.error("No se pudo cachear el indice", saveErr);
-        }
-
-      } catch (err) {
-        console.error("Error fetching index:", err);
+    try {
+      // El backend resuelve el caché y la API externa automáticamente
+      const res = await indicesApi.obtenerValorActual(val);
+      if (res.success && res.data) {
+        setFormData(prev => ({ ...prev, valorIndiceInicio: Number(res.data.valor) }));
       }
+    } catch (err) {
+      console.error('Error al obtener el valor del índice:', err);
     }
   };
+
 
   const filteredContratos = useMemo(() => {
     let result = contratos;
