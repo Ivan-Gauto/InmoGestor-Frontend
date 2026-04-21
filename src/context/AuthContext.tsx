@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { authService } from '../api/auth';
 import type { UsuarioInfo } from '../api/auth';
+import { ROLES } from '../utils/constants';
 
 interface AuthContextType {
   user: UsuarioInfo | null;
@@ -71,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, mensaje };
     }
   }, []);
-
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -80,9 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService.logout().catch(() => {});
   }, []);
 
-  const isAdmin = user?.rolNombre === 'Superior';
-  const isGerente = user?.rolNombre === 'Superior';
-  const isOperador = user?.rolNombre === 'Operador';
+  const isAdmin = user?.rolNombre === ROLES.SUPERIOR;
+  const isGerente = user?.rolNombre === ROLES.SUPERIOR;
+  const isOperador = user?.rolNombre === ROLES.OPERADOR;
   const canConfirmar = isAdmin || isGerente;
   const canRechazar = isAdmin || isGerente;
   const canAnular = isAdmin || isGerente;

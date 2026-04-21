@@ -1,6 +1,11 @@
 import api from './index';
 
 export const indicesApi = {
+  listarTipos: async () => {
+    const response = await api.get('/indice/tipos');
+    return response.data; // { success, data: [] }
+  },
+
   obtenerCacheActual: async (id: string) => {
     const response = await api.get(`/indice/${id}`);
     return response.data; // { success, data: { valor, ... } }

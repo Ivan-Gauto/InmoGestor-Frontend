@@ -18,6 +18,25 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [roles, setRoles] = useState<{idRolUsuario: string, nombre: string}[]>([]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await authService.getRoles();
+        if (res.success && res.data) {
+          setRoles(res.data);
+          // Si hay roles, establecemos el primero como default si no hay uno
+          if (res.data.length > 0 && !formData.RolNombre) {
+            setFormData(prev => ({ ...prev, RolNombre: res.data[0].nombre }));
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar roles", err);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -139,16 +158,19 @@ export default function RegisterPage() {
               onChange={handleChange('Email')}
             />
             <FormControl fullWidth margin="normal">
-              <InputLabel>Rol</InputLabel>
-              <Select
-                value={formData.RolNombre}
-                label="Rol"
-                onChange={handleChange('RolNombre') as (e: unknown) => void}
-              >
-                <MenuItem value="Operador">Operador</MenuItem>
-                <MenuItem value="Superior">Superior</MenuItem>
-              </Select>
-            </FormControl>
+                <InputLabel>Rol</InputLabel>
+                <Select
+                  value={formData.RolNombre}
+                  label="Rol"
+                  onChange={handleChange('RolNombre') as (e: unknown) => void}
+                >
+                  {roles.map((rol) => (
+                    <MenuItem key={rol.idRolUsuario} value={rol.nombre}>
+                      {rol.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             <TextField 
               fullWidth 
               label="Contraseña" 

@@ -44,6 +44,11 @@ export interface RegisterResponse {
 }
 
 export const authService = {
+  getRoles: async (): Promise<{ success: boolean; data?: any[]; mensaje?: string }> => {
+    const response = await api.get('/auth/roles');
+    return response.data;
+  },
+
   login: async (dni: string, password: string): Promise<LoginResponse> => {
     try {
       const response = await api.post<LoginResponse>('/auth/login', { Dni: dni, Password: password });

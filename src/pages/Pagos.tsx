@@ -26,6 +26,7 @@ import { PageHeader } from '../components/common/PageHeader';
 import { SearchInput } from '../components/common/SearchInput';
 import { StatusChip } from '../components/common/StatusChip';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { ESTADOS_PAGO } from '../utils/constants';
 import type { Pago, CuotaParaPago, RegistrarPagoRequest } from '../types/pago';
 import type { Contrato } from '../types/contrato';
 import type { Inquilino } from '../types/inquilino';
@@ -218,9 +219,9 @@ export default function PagosPage() {
     let result = pagos;
 
     // Filter by Tab (Pago estado: 0=Anulado, 1=Confirmado, 2=Solicitud)
-    if (tabValue === 1) result = result.filter(p => p.estado === 2);
-    else if (tabValue === 2) result = result.filter(p => p.estado === 1);
-    else if (tabValue === 3) result = result.filter(p => p.estado === 0);
+    if (tabValue === 1) result = result.filter(p => p.estado === ESTADOS_PAGO.SOLICITUD);
+    else if (tabValue === 2) result = result.filter(p => p.estado === ESTADOS_PAGO.CONFIRMADO);
+    else if (tabValue === 3) result = result.filter(p => p.estado === ESTADOS_PAGO.ANULADO);
 
     // Filter by Search Term
     if (searchTerm) {

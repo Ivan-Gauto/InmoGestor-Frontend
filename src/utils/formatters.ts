@@ -1,3 +1,4 @@
+import { DIAS_AVISO_VENCIMIENTO } from './constants';
 
 /**
  * Formatea una fecha ISO a formato local (DD/MM/YYYY) o similar
@@ -39,5 +40,5 @@ export const isPorVencer = (fechaFin: string | undefined): boolean => {
   const hoy = new Date();
   const diffTime = final.getTime() - hoy.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= 30;
+  return diffDays >= 0 && diffDays <= DIAS_AVISO_VENCIMIENTO;
 };

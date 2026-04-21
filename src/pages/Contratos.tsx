@@ -14,6 +14,7 @@ import type { Contrato, CrearContratoRequest } from '../types/contrato';
 import type { Inquilino } from '../types/inquilino';
 import type { Inmueble } from '../types/inmueble';
 import { useAuth } from '../context/AuthContext';
+import { ESTADOS_CONTRATO, FRECUENCIAS_AJUSTE } from '../utils/constants';
 import { PageHeader } from '../components/common/PageHeader';
 import { SearchInput } from '../components/common/SearchInput';
 import { StatusChip } from '../components/common/StatusChip';
@@ -33,7 +34,7 @@ const initialFormData: CrearContratoRequest = {
   inmuebleId: '',
   dniInquilino: '',
   rolInquilinoId: '',
-  frecuenciaAjuste: '',
+  frecuenciaAjuste: FRECUENCIAS_AJUSTE[1],
   idTipoIndice: '',
   valorIndiceInicio: null,
 };
@@ -62,6 +63,7 @@ export default function ContratosPage() {
   // Data for selects
   const [inquilinos, setInquilinos] = useState<Inquilino[]>([]);
   const [inmuebles, setInmuebles] = useState<Inmueble[]>([]);
+  const [tipoIndices, setTipoIndices] = useState<any[]>([]);
 
   // Success snackbar
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
@@ -97,9 +99,23 @@ export default function ContratosPage() {
     }
   };
 
+  const fetchTipoIndices = async () => {
+    try {
+      const response = await indicesApi.listarTipos();
+      // Solo mostramos IPC e ICL como pidió el usuario
+      const filtered = (response.data || []).filter((idx: any) => 
+        idx.nombre === 'IPC' || idx.nombre === 'ICL'
+      );
+      setTipoIndices(filtered);
+    } catch (err) {
+      console.error('Error al cargar tipos de índices:', err);
+    }
+  };
+
   const openCrearDialog = () => {
     fetchInquilinos();
     fetchInmuebles();
+    fetchTipoIndices();
     setCrearDialog(true);
   };
 
@@ -186,9 +202,12 @@ export default function ContratosPage() {
       return;
     }
     
-    // IDs reales desde InmoGestor DB
-    const isIPC = val === '9AEA4F7F-61B2-4605-9A8A-02E1D08BB64D';
-    const isICL = val === '92DF76E5-2671-4532-9EAD-D01CD049C6AF';
+    // Identificar el índice por su nombre en la lista cargada
+    const indiceSeleccionado = tipoIndices.find(t => t.idTipoIndice === val);
+    if (!indiceSeleccionado) return;
+
+    const isIPC = indiceSeleccionado.nombre === 'IPC';
+    const isICL = indiceSeleccionado.nombre === 'ICL';
     
     if (isIPC || isICL) {
       try {
@@ -230,10 +249,10 @@ export default function ContratosPage() {
     // Filter by Tab
     if (tabValue === 1) {
       // Activos
-      result = result.filter(c => c.estado === 1);
+      result = result.filter(c => c.estado === ESTADOS_CONTRATO.ACTIVO);
     } else if (tabValue === 2) {
       // Por Vencer
-      result = result.filter(c => c.estado === 1 && isPorVencer(c.fechaFin));
+      result = result.filter(c => c.estado === ESTADOS_CONTRATO.ACTIVO && isPorVencer(c.fechaFin));
     } else if (tabValue === 3) {
       // Rescindidos
       result = result.filter(c => c.estado !== 1);
@@ -507,8 +526,11 @@ export default function ContratosPage() {
                   onChange={(e) => handleIndexChange(e.target.value as string)}
                 >
                   <MenuItem value="" disabled>Seleccionar índice</MenuItem>
-                  <MenuItem value="9AEA4F7F-61B2-4605-9A8A-02E1D08BB64D">IPC (Índice Precios Consumidor)</MenuItem>
-                  <MenuItem value="92DF76E5-2671-4532-9EAD-D01CD049C6AF">ICL (Índice Contratos Locación)</MenuItem>
+                  {tipoIndices.map((idx) => (
+                    <MenuItem key={idx.idTipoIndice} value={idx.idTipoIndice}>
+                      {idx.nombre} ({idx.descripcion})
+                    </MenuItem>
+                  ))}
                 </TextField>
               </Box>
 
@@ -521,9 +543,9 @@ export default function ContratosPage() {
                   onChange={(e) => handleFormChange('frecuenciaAjuste', e.target.value as string)}
                 >
                   <MenuItem value="" disabled>Seleccionar frecuencia</MenuItem>
-                  <MenuItem value="Semestral">Semestral</MenuItem>
-                  <MenuItem value="Cuatrimestral">Cuatrimestral</MenuItem>
-                  <MenuItem value="Anual">Anual</MenuItem>
+                  {FRECUENCIAS_AJUSTE.map(f => (
+                    <MenuItem key={f} value={f}>{f}</MenuItem>
+                  ))}
                 </TextField>
               </Box>
 
