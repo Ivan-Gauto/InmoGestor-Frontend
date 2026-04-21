@@ -24,11 +24,6 @@ export default function ComingSoon() {
 
         
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-            <Box sx={{ p: 2, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'inline-flex' }}>
-              <ConstructionIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-            </Box>
-          </Box>
           
           <Typography variant="h3" gutterBottom sx={{ fontWeight: 800, background: 'linear-gradient(90deg, #FFFFFF 0%, #A1A1AA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Próximamente
@@ -41,7 +36,6 @@ export default function ComingSoon() {
           <Button 
             variant="contained" 
             onClick={() => navigate('/')} 
-            startIcon={<AutoAwesomeIcon />}
             sx={{ 
               borderRadius: 3, 
               px: 4, 
