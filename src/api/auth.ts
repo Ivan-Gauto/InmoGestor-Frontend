@@ -53,13 +53,39 @@ const authApi = axios.create({
 
 export const authService = {
   login: async (dni: string, password: string): Promise<LoginResponse> => {
-    const response = await authApi.post<LoginResponse>('/auth/login', { Dni: dni, Password: password });
-    return response.data;
+    try {
+      const response = await authApi.post<LoginResponse>('/auth/login', { Dni: dni, Password: password });
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        return {
+          success: false,
+          mensaje: error.response.data?.mensaje || 'Credenciales inválidas'
+        };
+      }
+      return {
+        success: false,
+        mensaje: 'Error de conexión'
+      };
+    }
   },
 
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await authApi.post<RegisterResponse>('/auth/register', data);
-    return response.data;
+    try {
+      const response = await authApi.post<RegisterResponse>('/auth/register', data);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        return {
+          success: false,
+          mensaje: error.response.data?.mensaje || 'Error al registrar'
+        };
+      }
+      return {
+        success: false,
+        mensaje: 'Error de conexión'
+      };
+    }
   },
 
   logout: async (): Promise<void> => {
