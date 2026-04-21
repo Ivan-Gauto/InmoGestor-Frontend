@@ -7,13 +7,9 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import ContratosPage from './pages/Contratos';
 import PagosPage from './pages/Pagos';
-import InmueblesPage from './pages/Inmuebles';
-import InquilinosPage from './pages/Inquilinos';
-import PropietariosPage from './pages/Propietarios';
-import UsuariosPage from './pages/Usuarios';
-import ReportesPage from './pages/Reportes';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
+import ComingSoon from './pages/ComingSoon';
 
 const theme = createTheme({
   palette: {
@@ -148,11 +144,11 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="contratos" element={<ContratosPage />} />
             <Route path="pagos" element={<PagosPage />} />
-            <Route path="inmuebles" element={<InmueblesPage />} />
-            <Route path="inquilinos" element={<InquilinosPage />} />
-            <Route path="propietarios" element={<PropietariosPage />} />
-            <Route path="usuarios" element={<UsuariosPage />} />
-            <Route path="reportes" element={<ReportesPage />} />
+            <Route path="inmuebles" element={<ComingSoon />} />
+            <Route path="inquilinos" element={<ComingSoon />} />
+            <Route path="propietarios" element={<ComingSoon />} />
+            <Route path="usuarios" element={<ComingSoon />} />
+            <Route path="reportes" element={<ComingSoon />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />

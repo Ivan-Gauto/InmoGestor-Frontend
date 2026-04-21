@@ -28,39 +28,53 @@ export default function RegisterPage() {
     setError('');
     setSuccess(false);
 
+    if (!formData.Dni) {
+      setError('El DNI es obligatorio');
+      return;
+    }
+    if (!formData.Nombre) {
+      setError('El nombre es obligatorio');
+      return;
+    }
+    if (!formData.Apellido) {
+      setError('El apellido es obligatorio');
+      return;
+    }
+    if (!formData.Email) {
+      setError('El email es obligatorio');
+      return;
+    }
+    if (!formData.Password) {
+      setError('La contraseña es obligatoria');
+      return;
+    }
+    if (formData.Password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
     if (formData.Password !== formData.ConfirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
 
-    if (formData.Password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-
     setIsLoading(true);
 
-    try {
-      const response = await authService.register({
-        Dni: formData.Dni,
-        Password: formData.Password,
-        Nombre: formData.Nombre,
-        Apellido: formData.Apellido,
-        Email: formData.Email,
-        RolNombre: formData.RolNombre
-      });
+    const response = await authService.register({
+      Dni: formData.Dni,
+      Password: formData.Password,
+      Nombre: formData.Nombre,
+      Apellido: formData.Apellido,
+      Email: formData.Email,
+      RolNombre: formData.RolNombre
+    });
 
-      if (response.success) {
-        setSuccess(true);
-        setTimeout(() => navigate('/login'), 2000);
-      } else {
-        setError(response.mensaje);
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de conexión';
-      setError(message);
-    } finally {
-      setIsLoading(false);
+    setIsLoading(false);
+
+    if (response.success) {
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 2000);
+    } else {
+      setError(response.mensaje);
     }
   };
 
@@ -98,7 +112,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.Dni}
               onChange={handleChange('Dni')}
-              required
             />
             <TextField 
               fullWidth 
@@ -107,7 +120,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.Nombre}
               onChange={handleChange('Nombre')}
-              required
             />
             <TextField 
               fullWidth 
@@ -116,7 +128,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.Apellido}
               onChange={handleChange('Apellido')}
-              required
             />
             <TextField 
               fullWidth 
@@ -126,7 +137,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.Email}
               onChange={handleChange('Email')}
-              required
             />
             <FormControl fullWidth margin="normal">
               <InputLabel>Rol</InputLabel>
@@ -147,7 +157,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.Password}
               onChange={handleChange('Password')}
-              required
             />
             <TextField 
               fullWidth 
@@ -157,7 +166,6 @@ export default function RegisterPage() {
               margin="normal"
               value={formData.ConfirmPassword}
               onChange={handleChange('ConfirmPassword')}
-              required
               sx={{ mb: 2 }}
             />
             <Button 
