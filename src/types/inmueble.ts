@@ -1,9 +1,13 @@
 export interface Inmueble {
-  id: string;
-  direccion: string;
+  idInmueble?: string;
+  idDireccion: string;
   descripcion: string;
-  disponibilidad: number;
-  disponibilidadNombre: string;
-  propietarioNombreCompleto: string;
-  tipoNombre: string;
+  estado?: string;
+  fechaCreacion?: string;
+  idPersonaPropietario: string;
+  idRolClientePropietario: string;
+  disponibilidad: boolean;
+  idTipoInmueble: string;
+  direccion?: string;
+  propietarioNombreCompleto?: string;
 }

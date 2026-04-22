@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
-import { 
-  Box, Typography, Container, Card, CardContent, TextField, 
-  Table, TableBody, TableCell, TableContainer, TableHead, 
+import {
+  Box, Typography, Container, Card, CardContent, TextField,
+  Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Chip, IconButton, Tooltip, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
-  MenuItem, Select
+  MenuItem, Select, Badge
 } from '@mui/material';
 import {
   ReceiptOutlined as ReceiptIcon,
@@ -16,7 +16,9 @@ import {
   CalendarTodayOutlined as CalendarIcon,
   AttachMoneyOutlined as MoneyIcon,
   CheckCircleOutlined as ApproveIcon,
-  RemoveCircleOutlined as RejectIcon
+  RemoveCircleOutlined as RejectIcon,
+  NotificationsOutlined as NotificationsIcon,
+  DeleteOutlined as DeleteIcon
 } from '@mui/icons-material';
 import { pagosApi } from '../api/pagos';
 import { contratosApi } from '../api/contratos';
@@ -27,9 +29,21 @@ import { SearchInput } from '../components/common/SearchInput';
 import { StatusChip } from '../components/common/StatusChip';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { ESTADOS_PAGO } from '../utils/constants';
+import { generatePaymentReceipt } from '../lib/pdf-generator';
 import type { Pago, CuotaParaPago, RegistrarPagoRequest } from '../types/pago';
 import type { Contrato } from '../types/contrato';
 import type { Inquilino } from '../types/inquilino';
+
+// Tipos para notificaciones
+interface Notificacion {
+  id: string;
+  tipo: 'rechazo' | 'aprobacion' | 'info';
+  titulo: string;
+  mensaje: string;
+  fecha: Date;
+  leida: boolean;
+  pagoId?: number;
+}
 
 const initialFormData: RegistrarPagoRequest = {
   contratoId: '',
@@ -47,7 +61,7 @@ export default function PagosPage() {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filtering state
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,24 +73,71 @@ export default function PagosPage() {
   // Dialog state for confirm/reject
   const [actionDialog, setActionDialog] = useState<{ open: boolean; id: number | null; action: 'confirmar' | 'rechazar' | null }>({ open: false, id: null, action: null });
 
+  // NEW: Estado para motivo de rechazo
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+
   // Dialog state for registering payment
   const [registrarDialog, setRegistrarDialog] = useState(false);
   const [registrarLoading, setRegistrarLoading] = useState(false);
   const [formData, setFormData] = useState<RegistrarPagoRequest>(initialFormData);
   const [formError, setFormError] = useState<string | null>(null);
-  
+
   const [selectedInquilino, setSelectedInquilino] = useState<string>('');
   const [otrosAdicionales, setOtrosAdicionales] = useState<number>(0);
 
   // Success snackbar
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '' });
 
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [inquilinos, setInquilinos] = useState<Inquilino[]>([]);
   const [, setCuotasContrato] = useState<CuotaParaPago[]>([]);
   const [cuotaActiva, setCuotaActiva] = useState<CuotaParaPago | null>(null);
 
-  const { canConfirmar, canRechazar, isOperador } = useAuth();
+  // NEW: Sistema de notificaciones
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [notificacionesOpen, setNotificacionesOpen] = useState(false);
+
+  const { canConfirmar, canRechazar, isOperador, user } = useAuth();
+
+  // Cargar notificaciones del localStorage al iniciar
+  useEffect(() => {
+    const savedNotificaciones = localStorage.getItem(`notificaciones_${user?.usuarioId}`);
+    if (savedNotificaciones) {
+      const parsed = JSON.parse(savedNotificaciones);
+      setNotificaciones(parsed.map((n: Notificacion) => ({ ...n, fecha: new Date(n.fecha) })));
+    }
+  }, [user?.usuarioId]);
+
+  // Guardar notificaciones en localStorage cuando cambien
+  useEffect(() => {
+    if (user?.usuarioId && notificaciones.length > 0) {
+      localStorage.setItem(`notificaciones_${user.usuarioId}`, JSON.stringify(notificaciones));
+    }
+  }, [notificaciones, user?.usuarioId]);
+
+  const notificacionesNoLeidas = useMemo(() => notificaciones.filter(n => !n.leida).length, [notificaciones]);
+
+  const agregarNotificacion = (notif: Omit<Notificacion, 'id' | 'fecha' | 'leida'>) => {
+    const nueva: Notificacion = {
+      ...notif,
+      id: Date.now().toString(),
+      fecha: new Date(),
+      leida: false
+    };
+    setNotificaciones(prev => [nueva, ...prev]);
+  };
+
+  const marcarComoLeida = (id: string) => {
+    setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
+  };
+
+  const eliminarNotificacion = (id: string) => {
+    setNotificaciones(prev => prev.filter(n => n.id !== id));
+  };
+
+  const marcarTodasComoLeidas = () => {
+    setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+  };
 
   const fetchPagos = async () => {
     try {
@@ -126,7 +187,7 @@ export default function PagosPage() {
       await pagosApi.anular(anularDialog.id);
       setAnularDialog({ open: false, id: null });
       fetchPagos();
-      setSnackbar({ open: true, message: 'Pago anulado exitosamente' });
+      setSnackbar({ open: true, message: 'Pago anulado exitosamente', severity: 'success' });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al anular pago');
     } finally {
@@ -141,7 +202,7 @@ export default function PagosPage() {
       await pagosApi.confirmar(actionDialog.id);
       setActionDialog({ open: false, id: null, action: null });
       fetchPagos();
-      setSnackbar({ open: true, message: 'Pago confirmado exitosamente' });
+      setSnackbar({ open: true, message: 'Pago confirmado exitosamente', severity: 'success' });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al confirmar el pago');
     } finally {
@@ -149,14 +210,35 @@ export default function PagosPage() {
     }
   };
 
+  // UPDATED: Rechazar con motivo
   const handleRechazar = async () => {
     if (!actionDialog.id) return;
+    if (!motivoRechazo.trim()) {
+      setSnackbar({ open: true, message: 'Debe ingresar un motivo de rechazo', severity: 'warning' });
+      return;
+    }
     try {
       setDialogLoading(true);
-      await pagosApi.rechazar(actionDialog.id);
+      // Llamar al endpoint con motivo
+      await pagosApi.rechazarConMotivo(actionDialog.id, motivoRechazo);
+
+      // Obtener datos del pago para la notificacion
+      const pagoRechazado = pagos.find(p => p.id === actionDialog.id);
+
+      // Crear notificacion para el operador que registro el pago
+      if (pagoRechazado) {
+        agregarNotificacion({
+          tipo: 'rechazo',
+          titulo: 'Solicitud de pago rechazada',
+          mensaje: `El pago de ${pagoRechazado.inquilino} para ${pagoRechazado.inmueble} (Cuota ${pagoRechazado.nroCuota}) fue rechazado. Motivo: ${motivoRechazo}`,
+          pagoId: actionDialog.id
+        });
+      }
+
       setActionDialog({ open: false, id: null, action: null });
+      setMotivoRechazo('');
       fetchPagos();
-      setSnackbar({ open: true, message: 'Pago rechazado' });
+      setSnackbar({ open: true, message: 'Pago rechazado correctamente', severity: 'info' });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al rechazar el pago');
     } finally {
@@ -164,9 +246,33 @@ export default function PagosPage() {
     }
   };
 
+  // NEW: Generar y descargar recibo PDF
+  const handleDescargarRecibo = (pago: Pago) => {
+    const contratoDelPago = contratos.find(c => c.id === String(pago.contratoId));
+
+    const datosPago = {
+      id: pago.id,
+      inquilino: pago.inquilino,
+      inquilinoDni: contratoDelPago?.dniInquilino || 'N/A',
+      inmueble: pago.inmueble,
+      inmuebleDireccion: contratoDelPago?.direccion || pago.inmueble,
+      nroCuota: pago.nroCuota,
+      fechaVencimiento: pago.fechaVencimiento,
+      fechaPago: pago.fechaPago || new Date().toISOString(),
+      montoBase: pago.monto - pago.mora,
+      mora: pago.mora,
+      montoTotal: pago.monto,
+      registradoPor: user?.nombre || 'Sistema',
+      metodoPago: 'Efectivo' // Puedes obtener esto de la API si lo tienes
+    };
+
+    generatePaymentReceipt(datosPago);
+    setSnackbar({ open: true, message: 'Recibo descargado correctamente', severity: 'success' });
+  };
+
   const handleRegistrarPago = async () => {
     setFormError(null);
-    
+
     if (!formData.contratoId) {
       setFormError('Debe seleccionar un contrato');
       return;
@@ -202,11 +308,12 @@ export default function PagosPage() {
       setRegistrarDialog(false);
       setFormData(initialFormData);
       fetchPagos();
-      setSnackbar({ 
-        open: true, 
-        message: isOperador 
-          ? 'Solicitud de pago enviada para aprobacion' 
-          : 'Pago registrado y confirmado exitosamente' 
+      setSnackbar({
+        open: true,
+        message: isOperador
+          ? 'Solicitud de pago enviada para aprobacion'
+          : 'Pago registrado y confirmado exitosamente',
+        severity: 'success'
       });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al registrar el pago');
@@ -226,7 +333,7 @@ export default function PagosPage() {
     // Filter by Search Term
     if (searchTerm) {
       const lowerSrc = searchTerm.toLowerCase();
-      result = result.filter(p => 
+      result = result.filter(p =>
         p.inquilino.toLowerCase().includes(lowerSrc) ||
         p.inmueble.toLowerCase().includes(lowerSrc) ||
         p.contratoId.toString().includes(lowerSrc)
@@ -251,24 +358,122 @@ export default function PagosPage() {
     setFormError(null);
   };
 
-
+  const resetActionDialog = () => {
+    setActionDialog({ open: false, id: null, action: null });
+    setMotivoRechazo('');
+  };
 
   return (
     <Container maxWidth="xl">
-      <PageHeader 
-        title="Gestión de Pagos"
-        subtitle="Administra cobros, emite recibos y controla vencimientos."
-        action={{
-          label: "Registrar Pago",
-          icon: <PaymentIcon />,
-          onClick: openRegistrarDialog
-        }}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+        <PageHeader
+          title="Gestion de Pagos"
+          subtitle="Administra cobros, emite recibos y controla vencimientos."
+          action={{
+            label: "Registrar Pago",
+            icon: <PaymentIcon />,
+            onClick: openRegistrarDialog
+          }}
+        />
+
+        {/* Boton de notificaciones */}
+        <Box sx={{ position: 'relative' }}>
+          <Tooltip title="Notificaciones">
+            <IconButton
+              onClick={() => setNotificacionesOpen(!notificacionesOpen)}
+              sx={{
+                bgcolor: notificacionesNoLeidas > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)',
+                '&:hover': { bgcolor: notificacionesNoLeidas > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.1)' }
+              }}
+            >
+              <Badge badgeContent={notificacionesNoLeidas} color="error">
+                <NotificationsIcon sx={{ color: notificacionesNoLeidas > 0 ? '#ef4444' : 'text.secondary' }} />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          {/* Panel de notificaciones */}
+          {notificacionesOpen && (
+            <Card sx={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              mt: 1,
+              width: 380,
+              maxHeight: 450,
+              overflow: 'hidden',
+              zIndex: 1000,
+              border: '1px solid rgba(255,255,255,0.1)',
+              bgcolor: '#0A0A0A',
+              borderRadius: 2,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+            }}>
+              <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Notificaciones</Typography>
+                {notificaciones.length > 0 && (
+                  <Button size="small" onClick={marcarTodasComoLeidas} sx={{ fontSize: '0.75rem' }}>
+                    Marcar todas como leidas
+                  </Button>
+                )}
+              </Box>
+              <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
+                {notificaciones.length === 0 ? (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <NotificationsIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">No hay notificaciones</Typography>
+                  </Box>
+                ) : (
+                  notificaciones.map(notif => (
+                    <Box
+                      key={notif.id}
+                      onClick={() => marcarComoLeida(notif.id)}
+                      sx={{
+                        p: 2,
+                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        bgcolor: notif.leida ? 'transparent' : 'rgba(239, 68, 68, 0.05)',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' },
+                        display: 'flex',
+                        gap: 2
+                      }}
+                    >
+                      <Box sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: notif.tipo === 'rechazo' ? '#ef4444' : notif.tipo === 'aprobacion' ? '#10b981' : '#3b82f6',
+                        mt: 0.5,
+                        flexShrink: 0
+                      }} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>{notif.titulo}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>
+                          {notif.mensaje}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', opacity: 0.6 }}>
+                          {new Date(notif.fecha).toLocaleString('es-AR')}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); eliminarNotificacion(notif.id); }}
+                        sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Card>
+          )}
+        </Box>
+      </Box>
 
       <Card sx={{ mb: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', bgcolor: '#0A0A0A', boxShadow: 'none', borderRadius: 2 }}>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ p: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-            <SearchInput 
+            <SearchInput
               placeholder="Buscar por inquilino, inmueble..."
               value={searchTerm}
               onChange={setSearchTerm}
@@ -358,13 +563,17 @@ export default function PagosPage() {
                           {pago.estado === 1 && (
                             <>
                               <Tooltip title="Descargar Recibo">
-                                <IconButton color="primary" sx={{ mr: 1, bgcolor: 'rgba(67, 97, 238, 0.1)' }}>
+                                <IconButton
+                                  color="primary"
+                                  sx={{ mr: 1, bgcolor: 'rgba(67, 97, 238, 0.1)' }}
+                                  onClick={() => handleDescargarRecibo(pago)}
+                                >
                                   <ReceiptIcon />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Anular Pago">
-                                <IconButton 
-                                  color="error" 
+                                <IconButton
+                                  color="error"
                                   sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)' }}
                                   onClick={() => setAnularDialog({ open: true, id: pago.id })}
                                 >
@@ -376,8 +585,8 @@ export default function PagosPage() {
                           {pago.estado === 2 && (canConfirmar || canRechazar) && (
                             <>
                               <Tooltip title="Confirmar Pago">
-                                <IconButton 
-                                  color="success" 
+                                <IconButton
+                                  color="success"
                                   sx={{ mr: 1, bgcolor: 'rgba(16, 185, 129, 0.1)' }}
                                   onClick={() => setActionDialog({ open: true, id: pago.id, action: 'confirmar' })}
                                 >
@@ -385,8 +594,8 @@ export default function PagosPage() {
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Rechazar Solicitud">
-                                <IconButton 
-                                  color="error" 
+                                <IconButton
+                                  color="error"
                                   sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)' }}
                                   onClick={() => setActionDialog({ open: true, id: pago.id, action: 'rechazar' })}
                                 >
@@ -407,68 +616,85 @@ export default function PagosPage() {
       </Card>
 
       {/* Confirmation Dialog for Anular */}
-      <Dialog 
-        open={anularDialog.open} 
+      <Dialog
+        open={anularDialog.open}
         onClose={() => !dialogLoading && setAnularDialog({ open: false, id: null })}
         slotProps={{ paper: { sx: { borderRadius: 3, bgcolor: 'background.paper', p: 1 } } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>Anular Pago</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            ¿Estás seguro que deseas anular este pago? El estado volverá a pendiente y de ser necesario deberás emitir notas de crédito correspondientes si fue facturado electrónicamente.
+            ¿Estas seguro que deseas anular este pago? El estado volvera a pendiente y de ser necesario deberas emitir notas de credito correspondientes si fue facturado electronicamente.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button 
-            onClick={() => setAnularDialog({ open: false, id: null })} 
-            color="inherit" 
+          <Button
+            onClick={() => setAnularDialog({ open: false, id: null })}
+            color="inherit"
             disabled={dialogLoading}
             sx={{ fontWeight: 600 }}
           >
             Cancelar
           </Button>
-          <Button 
-            onClick={handleAnular} 
-            color="error" 
-            variant="contained" 
+          <Button
+            onClick={handleAnular}
+            color="error"
+            variant="contained"
             disabled={dialogLoading}
             sx={{ fontWeight: 600, px: 3, borderRadius: 2 }}
           >
-            {dialogLoading ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Anulación'}
+            {dialogLoading ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Anulacion'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Confirmation Dialog for Confirm/Reject */}
-      <Dialog 
-        open={actionDialog.open} 
-        onClose={() => !dialogLoading && setActionDialog({ open: false, id: null, action: null })}
-        slotProps={{ paper: { sx: { borderRadius: 3, bgcolor: 'background.paper', p: 1 } } }}
+      {/* UPDATED: Dialog for Confirm/Reject with motivo */}
+      <Dialog
+        open={actionDialog.open}
+        onClose={() => !dialogLoading && resetActionDialog()}
+        slotProps={{ paper: { sx: { borderRadius: 3, bgcolor: 'background.paper', p: 1, minWidth: actionDialog.action === 'rechazar' ? 450 : 'auto' } } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {actionDialog.action === 'confirmar' ? 'Confirmar Pago' : 'Rechazar Solicitud'}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            {actionDialog.action === 'confirmar' 
-              ? '¿Estás seguro que deseas confirmar este pago? Una vez confirmado, el pago quedará registrado como efectivo.'
-              : '¿Estás seguro que deseas rechazar esta solicitud de pago? El pago volverá al estado pendiente.'}
+          <DialogContentText sx={{ mb: actionDialog.action === 'rechazar' ? 2 : 0 }}>
+            {actionDialog.action === 'confirmar'
+              ? '¿Estas seguro que deseas confirmar este pago? Una vez confirmado, el pago quedara registrado como efectivo y se podra generar el comprobante.'
+              : '¿Estas seguro que deseas rechazar esta solicitud de pago? Por favor, indica el motivo del rechazo para notificar al operador.'}
           </DialogContentText>
+
+          {/* Campo de motivo solo para rechazo */}
+          {actionDialog.action === 'rechazar' && (
+            <TextField
+              autoFocus
+              fullWidth
+              multiline
+              rows={3}
+              label="Motivo del rechazo"
+              placeholder="Ej: Datos incorrectos, monto no coincide, documentacion faltante..."
+              value={motivoRechazo}
+              onChange={(e) => setMotivoRechazo(e.target.value)}
+              sx={{ mt: 1 }}
+              error={!motivoRechazo.trim() && dialogLoading}
+              helperText={!motivoRechazo.trim() ? "El motivo es obligatorio" : ""}
+            />
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button 
-            onClick={() => setActionDialog({ open: false, id: null, action: null })} 
-            color="inherit" 
+          <Button
+            onClick={resetActionDialog}
+            color="inherit"
             disabled={dialogLoading}
             sx={{ fontWeight: 600 }}
           >
             Cancelar
           </Button>
-          <Button 
-            onClick={actionDialog.action === 'confirmar' ? handleConfirmar : handleRechazar} 
-            color={actionDialog.action === 'confirmar' ? 'success' : 'error'} 
-            variant="contained" 
-            disabled={dialogLoading}
+          <Button
+            onClick={actionDialog.action === 'confirmar' ? handleConfirmar : handleRechazar}
+            color={actionDialog.action === 'confirmar' ? 'success' : 'error'}
+            variant="contained"
+            disabled={dialogLoading || (actionDialog.action === 'rechazar' && !motivoRechazo.trim())}
             sx={{ fontWeight: 600, px: 3, borderRadius: 2 }}
           >
             {dialogLoading ? <CircularProgress size={24} color="inherit" /> : (actionDialog.action === 'confirmar' ? 'Confirmar' : 'Rechazar')}
@@ -477,8 +703,8 @@ export default function PagosPage() {
       </Dialog>
 
       {/* Dialog for Registrar Pago */}
-      <Dialog 
-        open={registrarDialog} 
+      <Dialog
+        open={registrarDialog}
         onClose={() => !registrarLoading && resetDialogForm()}
         maxWidth="md"
         fullWidth
@@ -526,24 +752,24 @@ export default function PagosPage() {
                 value={formData.contratoId || ''}
                 onChange={async (e) => {
                   const cId = e.target.value as string;
-                  
+
                   if (!cId) {
                     setCuotasContrato([]);
                     setCuotaActiva(null);
                     setFormData(prev => ({ ...prev, contratoId: '', cuotaId: '', nroCuota: 0 }));
                     return;
                   }
-                  
+
                   try {
                     const cuotasData = await pagosApi.obtenerCuotasPorContrato(cId);
                     setCuotasContrato(cuotasData);
-                    
+
                     const cuotaPendiente = cuotasData.find(c => c.estadoTexto !== 'Pagada');
                     if (cuotaPendiente) {
                       setCuotaActiva(cuotaPendiente);
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        contratoId: cId, 
+                      setFormData(prev => ({
+                        ...prev,
+                        contratoId: cId,
                         cuotaId: cuotaPendiente.cuotaId,
                         nroCuota: cuotaPendiente.nroCuota
                       }));
@@ -569,7 +795,7 @@ export default function PagosPage() {
                     .filter(c => c.dniInquilino === selectedInquilino)
                     .map(c => (
                       <MenuItem key={c.id} value={c.id}>
-                        Contrato #{c.id} - {c.direccion || c.inmueble}
+                        {c.direccion || c.inmueble}
                       </MenuItem>
                     ))
                 )}
@@ -612,9 +838,9 @@ export default function PagosPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 200 }}>
                   <EditIcon fontSize="small" color="action" />
                   <Typography variant="body2" color="text.secondary">Nro. de cuota</Typography>
-                  <TextField 
-                    variant="standard" 
-                    value={formData.nroCuota} 
+                  <TextField
+                    variant="standard"
+                    value={formData.nroCuota}
                     slotProps={{ input: { readOnly: true, disableUnderline: true } }}
                     sx={{ width: 40, '& input': { p: 0, fontWeight: 700, fontSize: '0.875rem' } }}
                   />
@@ -634,15 +860,15 @@ export default function PagosPage() {
                   <Typography variant="body2" color="text.secondary">Periodo de cuota</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700 }}>{cuotaActiva?.periodo || '-'}</Typography>
                 </Box>
-                <Chip 
-                  label={cuotaActiva?.estado === 1 ? 'Vencida' : cuotaActiva?.estado === 2 ? 'Pagada' : 'Pendiente'} 
-                  sx={{ 
-                    bgcolor: cuotaActiva?.estado === 1 ? '#ff4d4f' : cuotaActiva?.estado === 2 ? '#10B981' : '#FFFF00', 
-                    color: '#000', 
-                    fontWeight: 800, 
-                    borderRadius: 1 
-                  }} 
-                  size="small" 
+                <Chip
+                  label={cuotaActiva?.estado === 1 ? 'Vencida' : cuotaActiva?.estado === 2 ? 'Pagada' : 'Pendiente'}
+                  sx={{
+                    bgcolor: cuotaActiva?.estado === 1 ? '#ff4d4f' : cuotaActiva?.estado === 2 ? '#10B981' : '#FFFF00',
+                    color: '#000',
+                    fontWeight: 800,
+                    borderRadius: 1
+                  }}
+                  size="small"
                 />
               </Box>
 
@@ -673,10 +899,10 @@ export default function PagosPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 4, pt: 2, display: 'flex', gap: 2 }}>
-          <Button 
+          <Button
             onClick={handleRegistrarPago}
-            color="primary" 
-            variant="contained" 
+            color="primary"
+            variant="contained"
             fullWidth
             disabled={registrarLoading}
             sx={{ fontWeight: 600, py: 1.5, opacity: 0.8 }}
@@ -686,14 +912,21 @@ export default function PagosPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Success Snackbar */}
+      {/* Success Snackbar with Alert for colors */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ open: false, message: '' })}
-        message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
+      >
+        <Alert
+          onClose={() => setSnackbar({ open: false, message: '' })}
+          severity={snackbar.severity || 'success'}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
