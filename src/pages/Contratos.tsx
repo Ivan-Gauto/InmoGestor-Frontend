@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { 
-  Box, Typography, Container, Card, CardContent, TextField, 
+  Box, Typography, Container, TextField, 
   Table, TableBody, TableCell, TableContainer, TableHead, 
   TableRow, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar,
-  Select, MenuItem, IconButton, Tooltip, Divider
+  Select, MenuItem, IconButton, Tooltip
 } from '@mui/material';
 import { 
   Add as AddIcon, 
-  DescriptionOutlined as ContractIcon, 
   Refresh as RefreshIcon,
   HighlightOff as HighlightOffIcon 
 } from '@mui/icons-material';
@@ -20,7 +19,6 @@ import type { Inquilino } from '../types/inquilino';
 import type { Inmueble } from '../types/inmueble';
 import { useAuth } from '../context/AuthContext';
 import { ESTADOS_CONTRATO, FRECUENCIAS_AJUSTE } from '../utils/constants';
-import { PageHeader } from '../components/common/PageHeader';
 import { SearchInput } from '../components/common/SearchInput';
 import { StatusChip } from '../components/common/StatusChip';
 import { formatCurrency, formatDate, toInputDate, isPorVencer } from '../utils/formatters';
@@ -230,7 +228,7 @@ export default function ContratosPage() {
       result = result.filter(c => c.estado === ESTADOS_CONTRATO.ACTIVO && isPorVencer(c.fechaFin));
     } else if (tabValue === 3) {
       // Rescindidos
-      result = result.filter(c => c.estado !== 1);
+      result = result.filter(c => c.estado !== ESTADOS_CONTRATO.ACTIVO);
     }
 
     // Filter by Search Term
@@ -335,6 +333,12 @@ export default function ContratosPage() {
         <Box sx={{ bgcolor: 'rgba(255,255,255,0.01)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}><CircularProgress /></Box>
+          ) : error ? (
+            <Box sx={{ p: 4 }}>
+              <Alert severity="error" sx={{ bgcolor: 'rgba(244, 67, 54, 0.05)', color: '#f44336', border: '1px solid rgba(244, 67, 54, 0.2)', borderRadius: '12px' }}>
+                {error}
+              </Alert>
+            </Box>
           ) : (
             <TableContainer>
               <Table>
