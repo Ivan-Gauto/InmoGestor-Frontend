@@ -500,7 +500,7 @@ export default function ContratosPage() {
                 >
                   <MenuItem value="" disabled>Seleccionar inmueble</MenuItem>
                   {inmuebles.map((inm) => (
-                    <MenuItem key={inm.id} value={inm.id}>
+                    <MenuItem key={inm.idInmueble} value={inm.idInmueble}>
                       {inm.direccion}
                     </MenuItem>
                   ))}
