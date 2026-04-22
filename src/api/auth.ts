@@ -62,7 +62,7 @@ export const authService = {
       }
       return {
         success: false,
-        mensaje: 'Error de conexión'
+        mensaje: 'Sin conexión'
       };
     }
   },
@@ -80,7 +80,7 @@ export const authService = {
       }
       return {
         success: false,
-        mensaje: 'Error de conexión'
+        mensaje: 'Sin conexión'
       };
     }
   },
