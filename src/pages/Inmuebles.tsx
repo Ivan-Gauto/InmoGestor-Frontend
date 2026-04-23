@@ -17,7 +17,7 @@ import { StatusChip } from '../components/common/StatusChip';
 
 // Interfaz para el formulario de crear/editar inmueble
 interface InmuebleFormData {
-    idInmueble?: string;
+    id?: string;
     calle: string;
     altura: string;
     descripcion: string;
@@ -92,7 +92,7 @@ export default function InmueblesPage() {
             // Modo edición
             setIsEditing(true);
             setFormData({
-                idInmueble: inmueble.idInmueble,
+                id: inmueble.id,
                 calle: inmueble.direccion || '',
                 altura: '',
                 descripcion: inmueble.descripcion || '',
@@ -136,7 +136,7 @@ export default function InmueblesPage() {
 
             // Construir el objeto para enviar al backend
             const inmuebleData: Inmueble = {
-                idInmueble: formData.idInmueble,
+                id: formData.id,
                 idDireccion: '', // Se creará en el backend
                 descripcion: formData.descripcion,
                 disponibilidad: formData.disponibilidad,
@@ -147,7 +147,7 @@ export default function InmueblesPage() {
                 direccion: `${formData.calle} ${formData.altura}`.trim()
             };
 
-            if (isEditing && formData.idInmueble) {
+            if (isEditing && formData.id) {
                 await inmueblesApi.actualizar(inmuebleData);
                 setSnackbar({ open: true, message: 'Inmueble actualizado exitosamente' });
             } else {
@@ -326,7 +326,7 @@ export default function InmueblesPage() {
                                         </TableRow>
                                     ) : (
                                         filteredInmuebles.map((inmueble) => (
-                                            <TableRow key={inmueble.idInmueble} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                                            <TableRow key={inmueble.id} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
                                                 <TableCell sx={{ color: '#fff', fontWeight: 500, py: 3, pl: 4 }}>
                                                     {inmueble.direccion || 'Sin dirección'}
                                                 </TableCell>
@@ -354,7 +354,7 @@ export default function InmueblesPage() {
                                                     </Tooltip>
                                                     <Tooltip title="Eliminar">
                                                         <IconButton
-                                                            onClick={() => setDeleteDialog({ open: true, id: inmueble.idInmueble! })}
+                                                            onClick={() => setDeleteDialog({ open: true, id: inmueble.id! })}
                                                             sx={{ color: 'rgba(244, 67, 54, 0.5)', '&:hover': { color: '#f44336', bgcolor: 'rgba(244, 67, 54, 0.1)' } }}
                                                         >
                                                             <DeleteIcon />

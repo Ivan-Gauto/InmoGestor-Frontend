@@ -496,11 +496,12 @@ export default function ContratosPage() {
                   label="Inmueble"
                   fullWidth
                   value={formData.inmuebleId || ''}
-                  onChange={(e) => handleFormChange('inmuebleId', e.target.value as string)}
+                  onChange={(e) => handleFormChange('inmuebleId', e.target.value)}
+
                 >
                   <MenuItem value="" disabled>Seleccionar inmueble</MenuItem>
                   {inmuebles.map((inm) => (
-                    <MenuItem key={inm.idInmueble} value={inm.idInmueble}>
+                    <MenuItem key={inm.id} value={inm.id}>
                       {inm.direccion}
                     </MenuItem>
                   ))}
