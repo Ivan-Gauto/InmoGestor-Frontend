@@ -11,6 +11,21 @@ export const contratosApi = {
     throw new Error(response.data.mensaje || 'Error al obtener contratos');
   },
 
+  listarActivosPorInquilino: async (inquilinoId: string): Promise<Contrato[]> => {
+    const response = await api.get<ApiResponse<Contrato[]>>(
+      `/contrato/activos-por-inquilino`,
+      {
+        params: { idInquilino: inquilinoId }
+      }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.mensaje || 'Error al obtener contratos');
+  },
+
   obtenerPorId: async (id: string): Promise<Contrato> => {
     const response = await api.get<ApiResponse<Contrato>>(`/contrato/${id}`);
     if (response.data.success && response.data.data) {

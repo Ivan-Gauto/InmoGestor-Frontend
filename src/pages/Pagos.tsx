@@ -157,17 +157,17 @@ export default function PagosPage() {
   const openRegistrarDialog = async () => {
     try {
       setLoading(true);
-      const [dataInquilinos, dataContratos] = await Promise.all([
-        inquilinosApi.listarConContratos(),
-        contratosApi.listar()
-      ]);
+
+      const dataInquilinos = await inquilinosApi.listarConContratos();
+
       setInquilinos(dataInquilinos);
-      setContratos(dataContratos);
+      setContratos([]);
       setCuotasContrato([]);
       setCuotaActiva(null);
       setSelectedInquilino('');
       setFormData(initialFormData);
       setRegistrarDialog(true);
+
     } catch (err) {
       console.error('Error al cargar datos:', err);
       alert('Error al cargar datos. Intente de nuevo.');
@@ -175,6 +175,29 @@ export default function PagosPage() {
       setLoading(false);
     }
   };
+
+
+  const handleChangeInquilino = async (id: string) => {
+    try {
+      setSelectedInquilino(id);
+
+      if (!id) {
+        setContratos([]);
+        return;
+      }
+
+      const contratos = await contratosApi.listarActivosPorInquilino(id);
+      setContratos(contratos);
+
+    } catch (error) {
+      console.error("Error al obtener contratos:", error);
+    }
+  };
+
+
+
+
+
 
   useEffect(() => {
     fetchPagos();
